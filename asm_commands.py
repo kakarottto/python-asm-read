@@ -1,24 +1,24 @@
-#todo: read hex
+#todo: print the register values as hex
 #todo: select the current bit mode(16,32,64) for now eip and eflags will be used
 
 
-def AAA(*args):
+def AAA(args):
 	return
 
-def AAD(*args):
+def AAD(args):
 	
 	return
 
-def AAM(*args):
+def AAM(args):
 	return
 
-def AAS(*args):
+def AAS(args):
 	return
 
-def ADC(*args):
+def ADC(args):
 	return
 
-def ADD(*args):
+def ADD(args):
 	regs[args[1]] += int(args[2],0)
 	
 	update_regs(args[3], args[1])
@@ -30,10 +30,12 @@ def AND(args):
 	update_regs(args[1], args[0][1])
 	return
 
-def CALL(*args):
+#todo: create a place for the stack
+#save the eip to the stack, do the jump and on ret set the eip back
+def CALL(args):
 	return
 
-def CBW(*args):
+def CBW(args):
 	return
 
 #arguments: [instr,val,value], regs 
