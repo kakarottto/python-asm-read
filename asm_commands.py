@@ -2,58 +2,60 @@
 #todo: select the current bit mode(16,32,64) for now eip and eflags will be used
 
 
-def AAA(args,regs):
+def AAA(*args):
 	return
 
-def AAD(args,regs):
+def AAD(*args):
 	
 	return
 
-def AAM(args,regs):
+def AAM(*args):
 	return
 
-def AAS(args,regs):
+def AAS(*args):
 	return
 
-def ADC(args,regs):
+def ADC(*args):
 	return
 
-def ADD(args,regs):
+def ADD(*args):
 	regs[args[1]] += int(args[2],0)
 	
-	update_regs(regs, args[1])
+	update_regs(args[3], args[1])
 	return
 
-def AND(args,regs):
-	regs[args[1]] &= int(args[2],0)
-	update_regs(regs, args[1])
+#arguments: [val,val], regs
+def AND(args):
+	args[1][args[0][1]] &= int(args[0][2],0)
+	update_regs(args[1], args[0][1])
 	return
 
-def CALL(args,regs):
+def CALL(*args):
 	return
 
-def CBW(args,regs):
+def CBW(*args):
 	return
 
-def MOV(args,regs):
-	assert len(args)==3,"MOV: passed more arguments than required"
+#arguments: [instr,val,value], regs 
+def MOV(args):
+	#print(args)
+	#assert len(args)==2,"MOV: passed more arguments than required"
+	args[1][args[0][1]] = int(args[0][2],0)
 	
-	regs[args[1]] = int(args[2],0)
-
-	update_regs(regs, args[1])
+	update_regs(args[1], args[0][1])
 	return
 
-def JMP(args,regs,labels):
-	print("******jmp******")
-	if args[1] in labels.keys():
-		#print(labels[args[1]])
-		set_instruction_ptr(labels[args[1]],regs)
+#args: instruction, [instr,label_name], registers, labels
+def JMP(args):
+	if args[0][1] in args[2].keys():
+		set_instruction_ptr(args[2][args[0][1]],args[1])
 	else:
 		raise Exception("Jumping to unknown label!")
 	return
 ##############################
 
 
+#note that this is fake, todo: make it real even if it means to not use it and use smt else
 def set_instruction_ptr(val,regs):
 	regs['eip'] = val
 
@@ -174,9 +176,9 @@ def update_regs(regs, r):
 		regs[type_r+"l"] = u8(regs[type_r+"x"],regs)
 		regs[type_r+"h"] = u8((regs[type_r+"x"]>>8),regs)
 		
-		print(f"{type_r+'x'}: {regs[type_r+'x']}")
-		print(f"{type_r+'h'}: {regs[type_r+'h']}")
-		print(f"{type_r+'l'}: {regs[type_r+'l']}")
+		#print(f"{type_r+'x'}: {regs[type_r+'x']}")
+		#print(f"{type_r+'h'}: {regs[type_r+'h']}")
+		#print(f"{type_r+'l'}: {regs[type_r+'l']}")
 	elif level == 3:
 		regs["e"+type_r+"x"] =  u32(regs["e"+type_r+"x"])
 		

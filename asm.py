@@ -68,30 +68,13 @@ registers = {
 	'zmm24': 0, 'zmm25': 0, 'zmm26': 0, 'zmm27': 0, 'zmm28': 0, 'zmm29': 0, 'zmm30': 0, 'zmm31': 0
 }
 
+current_mode = 32
+
 
 storage_max = 1_000_000_000	#1mb
 storage= []
-flat_storage = []
 
 #its list of lists so this i is like a superposition and we wanna get the position
-
-def set_flat_storage():
-	for a in storage:
-		for i in a:
-			flat_storage.append(i)
-
-def storage_index(i):
-	if flat_storage == []:
-		set_flat_storage()	
-	
-	element = flat_storage[i]
-	for a in storage:
-		if element in a:
-			#return storage.index(a)
-			pass
-	
-	return 10
-	#return i // len(storage)
 
 labels = {}
 
@@ -120,11 +103,11 @@ def dprint(_str,**k):
 def storage_execute():
 	#todo: update it while the instruction pointer is not on the end
 	full_len = len(storage)
-	print(f"full len: {len(storage)}")
+	dprint(f"full len: {len(storage)}")
 	a = asm.get_instruction_ptr(registers)
 	while a < full_len:
-		print(a)
-		print(storage[a])
+		dprint(a)
+		dprint(storage[a])
 		
 		aexecute(storage[a])
 		if not a == asm.get_instruction_ptr(registers):
@@ -139,12 +122,9 @@ def aexecute(linstr):
 	#is intended to create a var
 	
 	if linstr[0].upper() in asm_commands:
-		#todo: fix the argument passing on asm_commands to *args
+		#will pass even unused by the instruction arguments
+		asm_commands[linstr[0].upper()]((linstr,registers,labels))
 		
-		if linstr[0].upper() == "JMP":
-			asm_commands[linstr[0].upper()](linstr,registers,labels)
-		else:
-			asm_commands[linstr[0].upper()](linstr,registers)
 	else:
 	
 		raise Exception(f"Wrong/Unsupported instruction: {linstr[0]}")
@@ -221,7 +201,7 @@ def read_asm(fpath):
 						#wont print the line for now
 						raise Exception(f"{_label} inconsistently redefined!")
 					
-					print(f"curr_index: {len(storage)}")
+					dprint(f"curr_index: {len(storage)}")
 					labels[_label] = len(storage)
 					
 					dprint(f"after {lcurr_instruction}")
@@ -250,9 +230,6 @@ def read_asm(fpath):
 			
 			dprint('')
 			
-		#for i in storage:
-		#	print(i)
-		#print(curr_index)
 		return
 		
 	except FileNotFoundError:
@@ -266,41 +243,9 @@ def read_asm(fpath):
 
 if __name__ == "__main__":
 	try:
-		#set_flat_storage()
 		read_settings(sys.argv)
 		storage_execute()
-		#print(registers)
+		print(registers)
 	except Exception as error:
 		print("Error: "+str(error))
-'''
-#todo: add initialization of data(db,dw,dd,dq)
-		if ':' not in linstr[0] and (not ':' == linstr[1]):
-			dprint(linstr)
-			#wont print the error line for now
-			raise Exception(f"Unknown instruction: {linstr[0]}")
-			return 0
-		instr = "".join(linstr)
-		
-		_label_name = instr.split(":")
-		dprint(f"label name: {_label_name[0]}")
-		
-		if _label_name[0] in labels.keys():
-			dprint(_label_name[0])
-			#wont print the line rn
-			raise Exception(f"{_label_name[0]} inconsistently redefined!")
-			return 0
-		
-		labels[_label_name[0]] = storage.index(linstr)
-		#ik its dumb but i dont have better idea currently
-		if ':' in linstr[0]:
-			linstr[0] = linstr[0].replace(_label_name[0]+":","")
-			if linstr[0] == '':
-				linstr.pop(0)
-				if len(linstr) != 0:
-					print(linstr)
-					asm_commands[linstr[0].upper()](linstr,registers)
-			
-		elif ':' == linstr[1]:
-			print("case1")
-		
-'''
+
