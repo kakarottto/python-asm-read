@@ -1,4 +1,6 @@
 #todo: read hex
+#todo: select the current bit mode(16,32,64) for now eip and eflags will be used
+
 
 def AAA(args,regs):
 	return
@@ -37,13 +39,26 @@ def MOV(args,regs):
 	assert len(args)==3,"MOV: passed more arguments than required"
 	
 	regs[args[1]] = int(args[2],0)
-	
 
 	update_regs(regs, args[1])
 	return
 
-
+def JMP(args,regs,labels):
+	print("******jmp******")
+	if args[1] in labels.keys():
+		#print(labels[args[1]])
+		set_instruction_ptr(labels[args[1]],regs)
+	else:
+		raise Exception("Jumping to unknown label!")
+	return
 ##############################
+
+
+def set_instruction_ptr(val,regs):
+	regs['eip'] = val
+
+def get_instruction_ptr(regs):
+	return regs['eip']
 
 def set_CF(regs):
 	regs['eflags'] = regs['eflags'] | 1
@@ -99,6 +114,7 @@ def update_regs(regs, r):
 		
 		
 	#rn dont have better ideas
+	#todo: remove the clearing of the carry flag and fill the rest of the carries
 	#note: it may have some shitty bug, check it out
 	if level == 0:
 		regs[r] = u8(regs[r])
@@ -144,7 +160,6 @@ def update_regs(regs, r):
 		
 	elif level == 2:
 		#regs[type_r+"x"] = u16(int(regs[type_r+"x"]),regs)
-	
 		regs[type_r+"x"]=u16(regs[type_r+"x"])
 		regs["e"+type_r+"x"] = (u32(regs["e"+type_r+"x"]) >>16 ) + u16(regs[type_r+"x"]) 
 		if is_CF(regs):
@@ -155,10 +170,13 @@ def update_regs(regs, r):
 		if is_CF(regs):
 			clear_CF(regs)
 			regs["r"+type_r+"x"] += u64(regs["r"+type_r+"x"],regs)+1
-
+		
 		regs[type_r+"l"] = u8(regs[type_r+"x"],regs)
-		regs[type_r+"h"] = u8(regs[type_r+"x"]>>8,regs)
-
+		regs[type_r+"h"] = u8((regs[type_r+"x"]>>8),regs)
+		
+		print(f"{type_r+'x'}: {regs[type_r+'x']}")
+		print(f"{type_r+'h'}: {regs[type_r+'h']}")
+		print(f"{type_r+'l'}: {regs[type_r+'l']}")
 	elif level == 3:
 		regs["e"+type_r+"x"] =  u32(regs["e"+type_r+"x"])
 		
@@ -190,6 +208,7 @@ def check_general_reg(r):
 	return False
 
 #casters from int to int8 uint8, etc..
+#todo: add i8,i16..
 def u8(x,regs=None):
 	if abs(x) > 0xff:
 		if regs != None:
@@ -198,7 +217,7 @@ def u8(x,regs=None):
 			set_SF(regs)
 			x = 255-((x<<8) & 0xff)
 		else:
-			x = ((x<<8) & 0xff)
+			x = (x & 0xff)
 	return x
 
 def u16(x,regs=None):
@@ -208,7 +227,7 @@ def u16(x,regs=None):
 		if x < 0:
 			x = 0xffff-((x<<16) & 0xffff)
 		else:
-			x = ((x << 16) & 0xffff)
+			x = (x & 0xffff)
 	return x
 def u32(x,regs=None):
 	if abs(x) > 0xffffffff:
@@ -218,7 +237,7 @@ def u32(x,regs=None):
 			set_SF(regs)
 			x = 0xffffffff-((x<<32) & 0xffffffff)
 		else:
-			x = ((x<<32) & 0xffffffff)
+			x = (x & 0xffffffff)
 	return x
 
 def u64(x,regs=None):
@@ -229,5 +248,5 @@ def u64(x,regs=None):
 			set_SF(regs)
 			x = 0xffffffffffffffff-((x<<64) & 0xffffffffffffffff)
 		else:
-			x = ((x<<64) & 0xffffffffffffffff)
+			x = (x & 0xffffffffffffffff)
 	return x

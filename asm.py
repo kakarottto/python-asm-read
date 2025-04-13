@@ -25,7 +25,7 @@ Bit   Label    Desciption
 20     VIP     Virtual interrupt pending flag
 21     ID      ID flag
 '''
-
+#for now will be used only eflags
 registers = {
 	'ah': 0, 'al': 0, 'bh': 0, 'bl': 0, 'ch': 0, 'cl': 0, 'dh': 0, 'dl': 0,
 	'ax': 0, 'bx': 0, 'cx': 0, 'dx': 0,
@@ -68,6 +68,33 @@ registers = {
 	'zmm24': 0, 'zmm25': 0, 'zmm26': 0, 'zmm27': 0, 'zmm28': 0, 'zmm29': 0, 'zmm30': 0, 'zmm31': 0
 }
 
+
+storage_max = 1_000_000_000	#1mb
+storage= []
+flat_storage = []
+
+#its list of lists so this i is like a superposition and we wanna get the position
+
+def set_flat_storage():
+	for a in storage:
+		for i in a:
+			flat_storage.append(i)
+
+def storage_index(i):
+	if flat_storage == []:
+		set_flat_storage()	
+	
+	element = flat_storage[i]
+	for a in storage:
+		if element in a:
+			#return storage.index(a)
+			pass
+	
+	return 10
+	#return i // len(storage)
+
+labels = {}
+
 #intel commands https://en.wikipedia.org/wiki/X86_instruction_listings
 asm_commands = {
 	'AAA': asm.AAA,
@@ -80,7 +107,8 @@ asm_commands = {
 	'CAL': asm.CALL,
 	'CBW': asm.CBW,
 	#todo: finish the rest
-	'MOV': asm.MOV
+	'MOV': asm.MOV,
+	'JMP': asm.JMP
 }
 
 
@@ -89,27 +117,38 @@ def dprint(_str,**k):
 		print(_str,**k)
 	return
 
-
+def storage_execute():
+	#todo: update it while the instruction pointer is not on the end
+	full_len = len(storage)
+	print(f"full len: {len(storage)}")
+	a = asm.get_instruction_ptr(registers)
+	while a < full_len:
+		print(a)
+		print(storage[a])
+		
+		aexecute(storage[a])
+		if not a == asm.get_instruction_ptr(registers):
+			a = asm.get_instruction_ptr(registers)
+		else:
+			a+=1
+			asm.set_instruction_ptr(a,registers)
+		
 def aexecute(linstr):
 	dprint(linstr)
 	#todo: support creating vars, aka if not an istruction then check if i the instructuins
 	#is intended to create a var
 	
 	if linstr[0].upper() in asm_commands:
+		#todo: fix the argument passing on asm_commands to *args
 		
-		asm_commands[linstr[0].upper()](linstr,registers)
+		if linstr[0].upper() == "JMP":
+			asm_commands[linstr[0].upper()](linstr,registers,labels)
+		else:
+			asm_commands[linstr[0].upper()](linstr,registers)
 	else:
-		#print an error
-		pass
 	
-	print(registers["al"])
-	print(registers["ah"])
-	print(registers["ax"])
-	print(registers["eax"])
-	print(registers["rax"])
-	print("")
-	
-	return
+		raise Exception(f"Wrong/Unsupported instruction: {linstr[0]}")
+		
 
 #for now will pass only one argumen - the file to execute
 def read_settings(*a,start=1):
@@ -134,6 +173,7 @@ def read_settings(*a,start=1):
 def read_asm(fpath):
 
 	try:
+		curr_index = 0
 		lcurr_instruction=[]
 		_file = open(fpath)
 		lfile = _file.readlines()
@@ -145,17 +185,76 @@ def read_asm(fpath):
 				
 				if ';' in j:
 					if j.split(";")[0] != '':
-						lcurr_instruction.append(j.split(";")[0])
+						lcurr_instruction.append(j.split(";")[0])	
 						dprint(j.split(";")[0])
 					dprint("skipping")
 					break
-				if j != '':
+				elif j != '':
 					lcurr_instruction.append(j)
 				dprint(j, end = ' ')
-			dprint('')
 			
 			if lcurr_instruction != []:
-				aexecute(lcurr_instruction)
+				
+				#check if its an label
+				dprint(f"{lcurr_instruction}")
+				
+				if ':' in lcurr_instruction[0] or  ':' == lcurr_instruction[1]:
+					#currently dont have better idea how to do it
+					_label = lcurr_instruction.pop(0)
+					if len(lcurr_instruction):
+						if ':' == lcurr_instruction[0]:
+							lcurr_instruction.pop(0)
+							
+						elif not _label[-1] == ':':
+							
+							dprint("special case")
+							label_split = _label.split(":")
+							_label = label_split[0]
+							lcurr_instruction.insert(0,label_split[1])
+						else:
+							#hope i dont have issues with this later on..
+							_label = _label[0:-1]
+					else:
+						_label = _label[0:-1]
+						
+					if _label in labels.keys():
+						#wont print the line for now
+						raise Exception(f"{_label} inconsistently redefined!")
+					
+					print(f"curr_index: {len(storage)}")
+					labels[_label] = len(storage)
+					
+					dprint(f"after {lcurr_instruction}")
+				
+				
+				if lcurr_instruction == []:
+					dprint("skipped")
+					continue
+				
+				dprint(curr_index)
+				
+				#if i remember correctly, its actually curr_index+=len()*curr_bit_mode/8
+				#but for now idc
+				curr_index+=len(lcurr_instruction)
+				if(curr_index>=storage_max):
+					r = curr_index-storage_max
+					
+					storage.append(lcurr_instruction[0:r])
+					print("STORAGE ALREADY FULL")
+					print(f"{storage_max}bytes / {curr_index}bytes")
+					curr_index=storage_max-1
+					print("executing anyway...")
+					return
+				else:
+					storage.append(lcurr_instruction)
+			
+			dprint('')
+			
+		#for i in storage:
+		#	print(i)
+		#print(curr_index)
+		return
+		
 	except FileNotFoundError:
 		print("Error: file on path "+fpath+" not found")
 		quit("quitting..")
@@ -163,7 +262,45 @@ def read_asm(fpath):
 		print("Exception_Name:"+type(error).__name__)
 		print("Error: "+str(error))
 		quit("quitting..")
-if __name__ == "__main__":
-	read_settings(sys.argv)
-	
 
+
+if __name__ == "__main__":
+	try:
+		#set_flat_storage()
+		read_settings(sys.argv)
+		storage_execute()
+		#print(registers)
+	except Exception as error:
+		print("Error: "+str(error))
+'''
+#todo: add initialization of data(db,dw,dd,dq)
+		if ':' not in linstr[0] and (not ':' == linstr[1]):
+			dprint(linstr)
+			#wont print the error line for now
+			raise Exception(f"Unknown instruction: {linstr[0]}")
+			return 0
+		instr = "".join(linstr)
+		
+		_label_name = instr.split(":")
+		dprint(f"label name: {_label_name[0]}")
+		
+		if _label_name[0] in labels.keys():
+			dprint(_label_name[0])
+			#wont print the line rn
+			raise Exception(f"{_label_name[0]} inconsistently redefined!")
+			return 0
+		
+		labels[_label_name[0]] = storage.index(linstr)
+		#ik its dumb but i dont have better idea currently
+		if ':' in linstr[0]:
+			linstr[0] = linstr[0].replace(_label_name[0]+":","")
+			if linstr[0] == '':
+				linstr.pop(0)
+				if len(linstr) != 0:
+					print(linstr)
+					asm_commands[linstr[0].upper()](linstr,registers)
+			
+		elif ':' == linstr[1]:
+			print("case1")
+		
+'''
