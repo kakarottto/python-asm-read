@@ -1,6 +1,7 @@
 #todo: print the register values as hex
 #todo: select the current bit mode(16,32,64) for now eip and eflags will be used
 
+import global_values as c
 
 def AAA(args):
 	return
@@ -40,7 +41,6 @@ def CBW(args):
 
 #arguments: [instr,val,value], regs 
 def MOV(args):
-	#print(args)
 	#assert len(args)==2,"MOV: passed more arguments than required"
 	args[1][args[0][1]] = int(args[0][2],0)
 	
@@ -54,36 +54,92 @@ def JMP(args):
 	else:
 		raise Exception("Jumping to unknown label!")
 	return
+
+
+#args: [instruction,val], regs, labels, stack 
+#note: sp must be greater than bp
+def PUSH(args):
+	if get_stack_base(args[1]) >= get_stack_ptr(args[1]):
+		#in the future can be change to smt else
+		raise Exception("stackoverflow!")
+	#if we are pushing smt that is not a reg or not a label then raise and shine
+	#if args[0][1] in args[1].keys() or args[0][1] not in args[2]:
+	#	print("in")
+
+#push plan:
+#case if register pushed: push the val of the register
+#case if label is pushed: later!(the label's location in mem)
+#case if val is pushed: push it as asm_mode's byte value
+#case if a char is pushed: push it as a val(ascii table)
+#case if [location] is pushed: calculate the location and push its value(must change the storage/ may not be supported at all)
+#case if has two args: first is how would the val/arg be cast, the second is the val/arg - push it!
+	if not (args[0][1] in args[1].keys()) or (args[0][1] in args[2]):
+		raise Exception(f"cannot push {args[0][1]} to stack(labels, registers or vals only)")
+	#change that in the future to bytes of the val
+	set_stack_ptr(get_stack_ptr(args[1])-1 , args[1])
+
+	push_stack(args[0][1],args[3])
+	
+	return
+
+#pop plan:
+#pop val: pops asm_mode's byte val(asm_mode/8)
+#pop reg: pops reg's length of bytes and sets the reg to it
+#pop [location]: not supported for now(set at the [location] the value)(might need to rewrite a lot)
+#pop char: cast it to asm_mode's byte to val
+def POP(args):
+	if not ((args[0][1] in args[1].keys()) or (args[0][1] in args[2])):
+		raise Exception(f"cannot pop {args[0][1]} from stack(labels or registers only)")
+	if len(args[3])!=0:
+		pop_stack(args[0][1],args[3])
+		#+ arg size in bytes instead of +1
+		set_stack_ptr(get_stack_ptr(args[1])+1,args[1])
+	else:
+		raise Exception("Cannot pop from an empty stack!")
+	return
 ##############################
 
+#stack
+def push_stack(val,stack):
+	stack.append(val)
+def pop_stack(val,stack):
+	#pops the last val's allocated bytes (eax - 4 ax, -2, al - 1, etc)
+	#note that you gotta look at case of [location] - then will pop the current mode amount of data
+	return stack.pop()
+def set_stack_base(val,regs):
+	regs[c.mode_char+'bp'] = val
+def get_stack_base(regs):
+	return regs[c.mode_char+'bp']
+def set_stack_ptr(val,regs):
+	regs[c.mode_char+'sp'] = val
+def get_stack_ptr(regs):
+	return regs[c.mode_char+'sp']
 
 #note that this is fake, todo: make it real even if it means to not use it and use smt else
 def set_instruction_ptr(val,regs):
-	regs['eip'] = val
+	regs[c.mode_char+'ip'] = val
 
 def get_instruction_ptr(regs):
-	return regs['eip']
+	return regs[c.mode_char+'ip']
 
 def set_CF(regs):
-	regs['eflags'] = regs['eflags'] | 1
+	regs[c.mode_char+'flags'] = regs[c.mode_char+'flags'] | 1
 
 def clear_CF(regs):
-	regs['eflags'] = regs['eflags'] & 0
+	regs[c.mode_char+'flags'] = regs[c.mode_char+'flags'] & 0
 
 def is_CF(regs):
-	#print(regs['eflags'])
-	return regs['eflags']
+	return regs[c.mode_char+'flags']
 
 def set_SF(regs):
 	#set the 7th bit
-	regs['eflags'] = regs['eflags'] | (1 << 7)
+	regs[c.mode_char+'flags'] = regs[c.mode_char+'flags'] | (1 << 7)
 
 def clear_SF(regs):
-	regs['eflags'] = regs['eflags'] & (0 << 7)
+	regs[c.mode_char+'flags'] = regs[c.mode_char+'flags'] & (0 << 7)
 
 def is_SF(regs):
-	#print(regs['eflags']>>7 & 1)
-	return (regs['eflags']>>7 & 1)
+	return (regs[c.mode_char+'flags']>>7 & 1)
 #level: *l - 0, *h - 1, *x - 2, e*x - 3, r*x - 4
 def update_regs(regs, r):
 	if not check_general_reg(r):
@@ -178,9 +234,7 @@ def update_regs(regs, r):
 		regs[type_r+"l"] = u8(regs[type_r+"x"],regs)
 		regs[type_r+"h"] = u8((regs[type_r+"x"]>>8),regs)
 		
-		#print(f"{type_r+'x'}: {regs[type_r+'x']}")
-		#print(f"{type_r+'h'}: {regs[type_r+'h']}")
-		#print(f"{type_r+'l'}: {regs[type_r+'l']}")
+		
 	elif level == 3:
 		regs["e"+type_r+"x"] =  u32(regs["e"+type_r+"x"])
 		

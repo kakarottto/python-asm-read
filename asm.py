@@ -1,31 +1,26 @@
 import sys
 import re
 import asm_commands as asm
+import global_values as c
 
-DEBUG =0
-'''
-eflags
-Bit   Label    Desciption
----------------------------
-0      CF      Carry flag
-2      PF      Parity flag
-4      AF      Auxiliary carry flag
-6      ZF      Zero flag
-7      SF      Sign flag
-8      TF      Trap flag
-9      IF      Interrupt enable flag
-10     DF      Direction flag
-11     OF      Overflow flag
-12-13  IOPL    I/O Priviledge level
-14     NT      Nested task flag
-16     RF      Resume flag
-17     VM      Virtual 8086 mode flag
-18     AC      Alignment check flag (486+)
-19     VIF     Virutal interrupt flag
-20     VIP     Virtual interrupt pending flag
-21     ID      ID flag
-'''
-#for now will be used only eflags
+#intel commands https://en.wikipedia.org/wiki/X86_instruction_listings
+asm_commands = {
+	'AAA': asm.AAA,
+	'AAD': asm.AAD,
+	'AAM': asm.AAM,
+	'AAS': asm.AAS,
+	'ADC': asm.ADC,
+	'ADD': asm.ADD,
+	'AND': asm.AND,
+	'CAL': asm.CALL,
+	'CBW': asm.CBW,
+	#todo: finish the rest
+	'MOV': asm.MOV,
+	'JMP': asm.JMP,
+	'PUSH': asm.PUSH,
+	'POP': asm.POP 
+}
+
 registers = {
 	'ah': 0, 'al': 0, 'bh': 0, 'bl': 0, 'ch': 0, 'cl': 0, 'dh': 0, 'dl': 0,
 	'ax': 0, 'bx': 0, 'cx': 0, 'dx': 0,
@@ -68,46 +63,29 @@ registers = {
 	'zmm24': 0, 'zmm25': 0, 'zmm26': 0, 'zmm27': 0, 'zmm28': 0, 'zmm29': 0, 'zmm30': 0, 'zmm31': 0
 }
 
-current_mode = 32
 
-
-storage_max = 1_000_000_000	#1mb
 storage= []
 
 #its list of lists so this i is like a superposition and we wanna get the position
-
 labels = {}
 
-#intel commands https://en.wikipedia.org/wiki/X86_instruction_listings
-asm_commands = {
-	'AAA': asm.AAA,
-	'AAD': asm.AAD,
-	'AAM': asm.AAM,
-	'AAS': asm.AAS,
-	'ADC': asm.ADC,
-	'ADD': asm.ADD,
-	'AND': asm.AND,
-	'CAL': asm.CALL,
-	'CBW': asm.CBW,
-	#todo: finish the rest
-	'MOV': asm.MOV,
-	'JMP': asm.JMP
-}
-
-
-def dprint(_str,**k):
-	if DEBUG == 1:
-		print(_str,**k)
-	return
+stack = []
+#the idea is bp = 0 and sp = stack_size-1
+#when pushing we get closer to bp
+#the storage starts from stack_size but its not structured like that(its all an illusion)
+def set_stack():
+	asm.set_stack_base(0,registers)
+	asm.set_stack_ptr(c.stack_size-1,registers)
+	
 
 def storage_execute():
 	#todo: update it while the instruction pointer is not on the end
 	full_len = len(storage)
-	dprint(f"full len: {len(storage)}")
+	c.dprint(f"full len: {len(storage)}")
 	a = asm.get_instruction_ptr(registers)
 	while a < full_len:
-		dprint(a)
-		dprint(storage[a])
+		c.dprint(a)
+		c.dprint(storage[a])
 		
 		aexecute(storage[a])
 		if not a == asm.get_instruction_ptr(registers):
@@ -117,13 +95,13 @@ def storage_execute():
 			asm.set_instruction_ptr(a,registers)
 		
 def aexecute(linstr):
-	dprint(linstr)
+	c.dprint(linstr)
 	#todo: support creating vars, aka if not an istruction then check if i the instructuins
 	#is intended to create a var
 	
 	if linstr[0].upper() in asm_commands:
 		#will pass even unused by the instruction arguments
-		asm_commands[linstr[0].upper()]((linstr,registers,labels))
+		asm_commands[linstr[0].upper()]((linstr,registers,labels,stack))
 		
 	else:
 	
@@ -166,17 +144,17 @@ def read_asm(fpath):
 				if ';' in j:
 					if j.split(";")[0] != '':
 						lcurr_instruction.append(j.split(";")[0])	
-						dprint(j.split(";")[0])
-					dprint("skipping")
+						c.dprint(j.split(";")[0])
+					c.dprint("skipping")
 					break
 				elif j != '':
 					lcurr_instruction.append(j)
-				dprint(j, end = ' ')
+				c.dprint(j, end = ' ')
 			
 			if lcurr_instruction != []:
 				
 				#check if its an label
-				dprint(f"{lcurr_instruction}")
+				c.dprint(f"{lcurr_instruction}")
 				
 				if ':' in lcurr_instruction[0] or  ':' == lcurr_instruction[1]:
 					#currently dont have better idea how to do it
@@ -187,7 +165,7 @@ def read_asm(fpath):
 							
 						elif not _label[-1] == ':':
 							
-							dprint("special case")
+							c.dprint("special case")
 							label_split = _label.split(":")
 							_label = label_split[0]
 							lcurr_instruction.insert(0,label_split[1])
@@ -201,23 +179,24 @@ def read_asm(fpath):
 						#wont print the line for now
 						raise Exception(f"{_label} inconsistently redefined!")
 					
-					dprint(f"curr_index: {len(storage)}")
+					c.dprint(f"curr_index: {len(storage)}")
 					labels[_label] = len(storage)
 					
-					dprint(f"after {lcurr_instruction}")
+					c.dprint(f"after {lcurr_instruction}")
 				
 				
 				if lcurr_instruction == []:
-					dprint("skipped")
+					c.dprint("skipped")
 					continue
 				
-				dprint(curr_index)
+				c.dprint(curr_index)
 				
 				#if i remember correctly, its actually curr_index+=len()*curr_bit_mode/8
 				#but for now idc
 				curr_index+=len(lcurr_instruction)
-				if(curr_index>=storage_max):
-					r = curr_index-storage_max
+				#todo: len stack must be changed to get_bytes from the stack or smt..
+				if(curr_index>=c.storage_max-len(stack)):
+					r = curr_index-c.storage_max
 					
 					storage.append(lcurr_instruction[0:r])
 					print("STORAGE ALREADY FULL")
@@ -228,7 +207,7 @@ def read_asm(fpath):
 				else:
 					storage.append(lcurr_instruction)
 			
-			dprint('')
+			c.dprint('')
 			
 		return
 		
@@ -243,9 +222,12 @@ def read_asm(fpath):
 
 if __name__ == "__main__":
 	try:
+		c.set_mode(32)
+		set_stack()
 		read_settings(sys.argv)
 		storage_execute()
 		print(registers)
+		print(stack)
 	except Exception as error:
 		print("Error: "+str(error))
 
